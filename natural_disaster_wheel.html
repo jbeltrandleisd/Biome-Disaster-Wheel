@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Biome Recovery Challenge — Natural Disaster Wheel</title>
+<style>
+  :root { --navy:#103b5c; --green:#37784b; --cream:#f5f8f3; --ink:#17324a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: "Trebuchet MS", Arial, sans-serif; background:linear-gradient(145deg,#eaf5fa,#f5f8ef); color:var(--ink); min-height:100vh; }
+  header { text-align:center; padding:24px 16px 10px; }
+  h1 { margin:0; color:var(--navy); text-transform:uppercase; letter-spacing:1.2px; font-size:clamp(1.65rem,4vw,2.7rem); }
+  header p { margin:8px auto 0; max-width:760px; font-size:1.05rem; }
+  .layout { display:grid; grid-template-columns:minmax(280px,1.1fr) minmax(280px,.9fr); gap:24px; max-width:1100px; margin:18px auto; padding:0 18px 28px; align-items:center; }
+  .wheel-area { position:relative; width:min(100%,560px); margin:auto; }
+  canvas { display:block; width:100%; height:auto; filter:drop-shadow(0 8px 12px #17324a22); }
+  .pointer { position:absolute; z-index:2; top:-7px; left:50%; transform:translateX(-50%); width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:0;border-bottom:42px solid #e34f45; filter:drop-shadow(0 3px 2px #0003); }
+  .hub { position:absolute; top:50%;left:50%;transform:translate(-50%,-50%);width:23%;aspect-ratio:1;border-radius:50%;background:#fff;border:7px solid var(--navy);display:flex;align-items:center;justify-content:center;text-align:center;font-weight:900;color:var(--navy);font-size:clamp(.65rem,1.7vw,1rem);box-shadow:0 3px 8px #0002;pointer-events:none; }
+  .panel { background:#fff; border:2px solid #d8e7dc; border-radius:22px; padding:24px; box-shadow:0 8px 22px #17324a12; }
+  .eyebrow { color:var(--green); font-size:.8rem; text-transform:uppercase; letter-spacing:1.5px; font-weight:900; }
+  h2 { margin:6px 0 10px; color:var(--navy); font-size:1.75rem; }
+  .scenario { font-size:1.08rem; line-height:1.5; min-height:88px; }
+  .buttons { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
+  button { border:0; border-radius:12px; padding:13px 18px; font-size:1rem; font-weight:800; cursor:pointer; transition:transform .15s, opacity .15s; }
+  button:hover { transform:translateY(-1px); } button:disabled { opacity:.55; cursor:wait; transform:none; }
+  .spin { background:var(--green); color:white; flex:1; min-width:150px; }
+  .secondary { background:#e9f1f6; color:var(--navy); }
+  .answerbox { background:#f1f6ef; border-radius:14px; padding:14px 16px; margin-top:12px; }
+  .answerbox strong { color:var(--green); }
+  .answerbox p { margin:6px 0 0; line-height:1.45; }
+  .question { font-weight:800; margin-top:15px; }
+  .choices { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .choice { background:#f3f6f9; color:var(--navy); border:2px solid #dce6ed; }
+  .choice:hover { border-color:var(--green); }
+  .feedback { min-height:28px; font-weight:800; margin-top:10px; }
+  .small { font-size:.88rem; color:#536777; line-height:1.45; }
+  footer { text-align:center; padding:0 16px 22px; color:#536777; font-size:.85rem; }
+  @media(max-width:760px) { .layout { grid-template-columns:1fr; gap:12px; } .wheel-area { max-width:480px; } .panel { padding:20px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌎 Natural Disaster Wheel</h1>
+  <p><b>Biome Recovery Challenge · TEKS 8.12B</b><br>Spin the wheel, investigate the disturbance, and decide how the ecosystem can recover.</p>
+</header>
+<main class="layout">
+  <section class="wheel-area" aria-label="Natural disaster spinner">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="700" height="700" aria-label="Wheel showing eight natural disasters"></canvas>
+    <div class="hub">SPIN<br>TO<br>DISCOVER</div>
+  </section>
+  <section class="panel">
+    <div class="eyebrow">Your disaster scenario</div>
+    <h2 id="eventName">Ready to spin?</h2>
+    <div class="scenario" id="scenario">Spin the wheel to discover what happened to your biome. Read the scenario carefully—whether soil remains is an important clue!</div>
+    <div class="buttons">
+      <button class="spin" id="spinBtn">↻ Spin the Wheel</button>
+      <button class="secondary" id="resetBtn">Reset</button>
+    </div>
+    <div id="questionArea" hidden>
+      <div class="question">What type of succession is most likely?</div>
+      <div class="choices">
+        <button class="choice" data-answer="Primary">Primary succession</button>
+        <button class="choice" data-answer="Secondary">Secondary succession</button>
+      </div>
+      <div class="feedback" id="feedback" aria-live="polite"></div>
+      <div class="answerbox" id="answerBox" hidden>
+        <strong id="answerTitle"></strong>
+        <p id="explanation"></p>
+      </div>
+      <p class="small">Remember: primary succession begins on a surface without developed soil. Secondary succession occurs after a disturbance when soil remains.</p>
+    </div>
+  </section>
+</main>
+<footer>Teacher tip: Have students name the evidence from the scenario before revealing the explanation.</footer>
+<script>
+const events = [
+ {name:"Volcanic Eruption", icon:"🌋", color:"#d95b45", scenario:"Lava covers the land and cools into bare rock. The eruption leaves no developed soil behind.", answer:"Primary", why:"The new surface is bare rock without developed soil. Pioneer organisms must colonize it, and soil develops over time."},
+ {name:"Wildfire", icon:"🔥", color:"#ef8c35", scenario:"A wildfire burns most plants in a forest, but the soil remains. Some seeds and roots survive underground.", answer:"Secondary", why:"Existing soil remains and surviving seeds or roots can support regrowth, so this is secondary succession."},
+ {name:"Flood", icon:"🌊", color:"#328cc1", scenario:"A powerful flood washes away many plants and animals. After the water recedes, soil remains in the area.", answer:"Secondary", why:"Because soil remains after the disturbance, plants can recolonize the area through secondary succession."},
+ {name:"Landslide", icon:"⛰️", color:"#9b7852", scenario:"A landslide strips a steep slope down to bare rock, removing the soil that once supported plants.", answer:"Primary", why:"The exposed surface has no developed soil, so soil formation and colonization must begin again."},
+ {name:"Severe Storm", icon:"🌪️", color:"#5c83b8", scenario:"A severe storm knocks down many trees and damages vegetation, but the forest soil is still in place.", answer:"Secondary", why:"The soil remains and may contain seeds, roots, microbes, and nutrients that help the ecosystem recover."},
+ {name:"Glacier Retreat", icon:"🧊", color:"#4da8a8", scenario:"A glacier melts and reveals a broad area of bare rock that has not yet developed soil.", answer:"Primary", why:"Newly exposed rock without developed soil is a classic setting for primary succession."},
+ {name:"Prolonged Drought", icon:"☀️", color:"#d8ad35", scenario:"A long drought kills many grasses and shrubs in a grassland, but the soil remains and some seeds survive.", answer:"Secondary", why:"The area still has soil, and surviving seeds or new seeds can grow when conditions become favorable."},
+ {name:"Earthquake", icon:"🪨", color:"#8c6bb1", scenario:"An earthquake exposes a patch of bare rock with no developed soil after a slope collapses.", answer:"Primary", why:"In this scenario, the exposed surface has no developed soil, so primary succession is most likely."}
+];
+const canvas = document.getElementById('wheel'), ctx = canvas.getContext('2d');
+const cx=350, cy=350, radius=320, slice=Math.PI*2/events.length;
+let rotation=0, spinning=false, current=-1, answered=false;
+function drawWheel(){
+ ctx.clearRect(0,0,700,700);
+ events.forEach((e,i)=>{
+   const start=rotation+i*slice-Math.PI/2, end=start+slice;
+   ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,radius,start,end); ctx.closePath();
+   ctx.fillStyle=e.color; ctx.fill(); ctx.strokeStyle="#fff"; ctx.lineWidth=6; ctx.stroke();
+   const mid=start+slice/2;
+   ctx.save(); ctx.translate(cx+Math.cos(mid)*215,cy+Math.sin(mid)*215); ctx.rotate(mid+Math.PI/2);
+   ctx.textAlign="center"; ctx.fillStyle="#fff"; ctx.font="bold 43px Arial"; ctx.fillText(e.icon,0,-9);
+   ctx.font="bold 19px Trebuchet MS, Arial"; wrapText(e.name,0,22,116,22);
+   ctx.restore();
+ });
+ ctx.beginPath(); ctx.arc(cx,cy,radius+1,0,Math.PI*2); ctx.strokeStyle="#103b5c"; ctx.lineWidth=10; ctx.stroke();
+}
+function wrapText(text,x,y,maxWidth,lineHeight){
+ const words=text.split(' '); let line='', lines=[];
+ for(const word of words){ const test=line?line+' '+word:word; if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=word;}else line=test; }
+ if(line)lines.push(line);
+ lines.forEach((l,i)=>ctx.fillText(l,x,y+i*lineHeight));
+}
+function selectEvent(index){
+ current=index; answered=false; const e=events[index];
+ document.getElementById('eventName').textContent=e.icon+" "+e.name;
+ document.getElementById('scenario').textContent=e.scenario;
+ document.getElementById('questionArea').hidden=false;
+ document.getElementById('feedback').textContent='';
+ document.getElementById('answerBox').hidden=true;
+ document.querySelectorAll('.choice').forEach(b=>b.disabled=false);
+}
+function spin(){
+ if(spinning)return;
+ spinning=true; document.getElementById('spinBtn').disabled=true;
+ document.getElementById('questionArea').hidden=true;
+ const startRotation=rotation, extra=(Math.PI*2)*(5+Math.random()*3)+Math.random()*Math.PI*2;
+ const duration=4200, start=performance.now();
+ function frame(now){
+   const t=Math.min(1,(now-start)/duration), ease=1-Math.pow(1-t,4);
+   rotation=startRotation+extra*ease; drawWheel();
+   if(t<1) requestAnimationFrame(frame);
+   else {
+     spinning=false; document.getElementById('spinBtn').disabled=false;
+     const pointerAngle=(Math.PI*2-((rotation%(Math.PI*2))+Math.PI*2)%(Math.PI*2)+Math.PI/2)%(Math.PI*2);
+     const idx=Math.floor(pointerAngle/slice)%events.length;
+     selectEvent(idx);
+   }
+ }
+ requestAnimationFrame(frame);
+}
+document.getElementById('spinBtn').addEventListener('click',spin);
+document.getElementById('resetBtn').addEventListener('click',()=>{
+ if(spinning)return; rotation=0;current=-1;answered=false;drawWheel();
+ document.getElementById('eventName').textContent="Ready to spin?";
+ document.getElementById('scenario').textContent="Spin the wheel to discover what happened to your biome. Read the scenario carefully—whether soil remains is an important clue!";
+ document.getElementById('questionArea').hidden=true;
+});
+document.querySelectorAll('.choice').forEach(btn=>btn.addEventListener('click',()=>{
+ if(current<0||answered)return;
+ const e=events[current], correct=btn.dataset.answer===e.answer;
+ document.getElementById('feedback').textContent=correct?"✅ Correct! Now explain what evidence helped you decide.":"Not quite—look closely at the soil clue and try again.";
+ document.getElementById('feedback').style.color=correct?"#287443":"#b03c35";
+ if(correct){
+   answered=true;
+   document.querySelectorAll('.choice').forEach(b=>b.disabled=true);
+   document.getElementById('answerBox').hidden=false;
+   document.getElementById('answerTitle').textContent=e.answer+" succession";
+   document.getElementById('explanation').textContent=e.why;
+ }
+}));
+drawWheel();
+</script>
+</body>
+</html>
